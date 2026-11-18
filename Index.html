@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moment — Guess the Sports Moment</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#182028; --line:#2a3642; --text:#e8edf2; --muted:#8a99a8;
+    --green:#2e9e5b; --yellow:#c9a227; --red:#b8433d; --accent:#4aa3ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+  header{text-align:center;margin-bottom:18px}
+  h1{margin:0;font-size:2rem;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:.95rem;margin-top:4px}
+  .bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+  button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:.95rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .search{position:relative;max-width:520px;margin:16px auto}
+  .search input{width:100%;padding:13px 14px;font-size:1rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);outline:none}
+  .search input:focus{border-color:var(--accent)}
+  .dropdown{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;max-height:260px;overflow:auto;z-index:5;display:none}
+  .dropdown div{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .dropdown div:last-child{border-bottom:none}
+  .dropdown div.active,.dropdown div:hover{background:#22303c}
+  .counter{text-align:center;color:var(--muted);margin:6px 0 12px}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:5px;margin:0 auto;min-width:640px;width:100%}
+  th{font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:600;padding:2px 4px}
+  td{padding:10px 6px;text-align:center;border-radius:8px;font-size:.88rem;font-weight:600;line-height:1.2;background:var(--panel);animation:pop .35s ease both}
+  td.name{text-align:left;background:transparent;font-weight:600;padding-left:2px;min-width:130px}
+  td.g{background:var(--green)} td.y{background:var(--yellow);color:#16120a} td.r{background:var(--red)}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+  .result{max-width:560px;margin:20px auto;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-align:center;display:none}
+  .result h2{margin:0 0 6px}
+  .result p{color:var(--muted);margin:6px 0 12px}
+  .legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:.82rem;margin:8px 0 2px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .stats{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
+  details{max-width:560px;margin:14px auto;color:var(--muted);font-size:.9rem}
+  summary{cursor:pointer;color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>MOM<span>ENT</span></h1>
+    <div class="sub">Guess the legendary sports moment in 8 tries.</div>
+  </header>
+
+  <details>
+    <summary>How to play</summary>
+    <p>Type a moment and submit it. Each guess reveals how it compares to the mystery moment on six traits:
+    sport, league, year, type of moment, stakes, and the team or athlete.
+    Green = exact match. Yellow = close (same sport for league, within 5 years for year).
+    Arrows on the year point toward the right answer.</p>
+  </details>
+
+  <div class="bar">
+    <button id="modeDaily" class="primary">Daily moment</button>
+    <button id="modeRandom">Random (unlimited)</button>
+  </div>
+
+  <div class="search">
+    <input id="guess" type="text" placeholder="Search a moment, team, or sport..." autocomplete="off">
+    <div id="dd" class="dropdown"></div>
+  </div>
+  <div class="counter" id="counter"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="text-align:left">Moment</th><th>Sport</th><th>League</th><th>Year</th><th>Type</th><th>Stakes</th><th>Team / Athlete</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>Match</span>
+    <span><i style="background:var(--yellow)"></i>Close</span>
+    <span><i style="background:var(--red)"></i>Miss</span>
+  </div>
+
+  <div class="result" id="result"></div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<script>
+/* ---------- DATA ----------
+   n=name, s=sport, l=league, y=year, t=type, k=stakes, w=team/athlete (winner or hero), d=description */
+const MOMENTS = [
+ // Football
+ {n:"The Kick Six",s:"Football",l:"NCAA Football",y:2013,t:"Game-winner",k:"Regular season",w:"Auburn",d:"Chris Davis returned a missed field goal 109 yards on the final play to beat Alabama."},
+ {n:"28-3 Comeback",s:"Football",l:"NFL",y:2017,t:"Comeback",k:"Championship",w:"Patriots",d:"New England erased a 25-point deficit against Atlanta and won Super Bowl LI in overtime."},
+ {n:"The Catch",s:"Football",l:"NFL",y:1982,t:"Game-winner",k:"Postseason",w:"49ers",d:"Dwight Clark's leaping grab beat Dallas in the NFC Championship Game."},
+ {n:"Immaculate Reception",s:"Football",l:"NFL",y:1972,t:"Miracle play",k:"Postseason",w:"Steelers",d:"A deflected pass ended up in Franco Harris's hands for a last-second touchdown."},
+ {n:"Music City Miracle",s:"Football",l:"NFL",y:2000,t:"Miracle play",k:"Postseason",w:"Titans",d:"A lateral on a kickoff return beat Buffalo in the final seconds of a playoff game."},
+ {n:"The Helmet Catch",s:"Football",l:"NFL",y:2008,t:"Miracle play",k:"Championship",w:"Giants",d:"Eli Manning escaped a sack and David Tyree pinned the ball to his helmet in Super Bowl XLII."},
+ {n:"Malcolm Butler's Interception",s:"Football",l:"NFL",y:2015,t:"Game-winner",k:"Championship",w:"Patriots",d:"An undrafted rookie picked off Seattle at the goal line to seal Super Bowl XLIX."},
+ {n:"The Philly Special",s:"Football",l:"NFL",y:2018,t:"Miracle play",k:"Championship",w:"Eagles",d:"A trick play where the quarterback caught a touchdown in Super Bowl LII."},
+ {n:"Wide Right",s:"Football",l:"NFL",y:1991,t:"Heartbreak",k:"Championship",w:"Giants",d:"Buffalo's Scott Norwood missed a last-second field goal in Super Bowl XXV."},
+ {n:"Namath's Guarantee",s:"Football",l:"NFL",y:1969,t:"Upset",k:"Championship",w:"Jets",d:"Joe Namath predicted a win, then beat the heavily favored Colts in Super Bowl III."},
+ {n:"The Ice Bowl",s:"Football",l:"NFL",y:1967,t:"Game-winner",k:"Championship",w:"Packers",d:"Bart Starr's quarterback sneak beat Dallas in brutal sub-zero cold."},
+ {n:"Flutie's Hail Mary",s:"Football",l:"NCAA Football",y:1984,t:"Game-winner",k:"Regular season",w:"Boston College",d:"Doug Flutie's desperation heave beat the defending national champion Miami."},
+ {n:"The Play",s:"Football",l:"NCAA Football",y:1982,t:"Miracle play",k:"Regular season",w:"Cal",d:"Five lateral passes and a band on the field ended the Big Game with a Cal touchdown."},
+ {n:"Boise State Statue of Liberty",s:"Football",l:"NCAA Football",y:2007,t:"Upset",k:"Postseason",w:"Boise State",d:"A trick two-point conversion in overtime beat Oklahoma in the Fiesta Bowl."},
+ {n:"Vince Young's Rose Bowl",s:"Football",l:"NCAA Football",y:2006,t:"Game-winner",k:"Championship",w:"Texas",d:"Young scored on a late fourth-down run to beat USC for the national title."},
+ {n:"Appalachian State Beats Michigan",s:"Football",l:"NCAA Football",y:2007,t:"Upset",k:"Regular season",w:"Appalachian State",d:"An FCS team shocked the 5th-ranked Wolverines in the Big House."},
+ {n:"Beast Quake",s:"Football",l:"NFL",y:2011,t:"Miracle play",k:"Postseason",w:"Seahawks",d:"Marshawn Lynch broke tackle after tackle on a touchdown run so loud it registered on seismographs."},
+ {n:"13 Seconds",s:"Football",l:"NFL",y:2022,t:"Comeback",k:"Postseason",w:"Chiefs",d:"Patrick Mahomes and Kansas City scored twice in the final seconds to force overtime against Buffalo."},
+ {n:"The Tuck Rule Game",s:"Football",l:"NFL",y:2002,t:"Controversy",k:"Postseason",w:"Patriots",d:"A fumble was overturned in a snowstorm, setting up a Patriots comeback over Oakland."},
+ {n:"Staubach's Hail Mary",s:"Football",l:"NFL",y:1975,t:"Miracle play",k:"Postseason",w:"Cowboys",d:"Roger Staubach's long heave to Drew Pearson beat Minnesota in the playoffs."},
+ {n:"Miracle in Miami",s:"Football",l:"NFL",y:2018,t:"Miracle play",k:"Regular season",w:"Dolphins",d:"A hook-and-ladder of laterals on the final play beat New England."},
+ // Basketball
+ {n:"The Shot (Jordan over Ehlo)",s:"Basketball",l:"NBA",y:1989,t:"Game-winner",k:"Postseason",w:"Bulls",d:"Michael Jordan hit a buzzer-beater over Craig Ehlo to beat Cleveland in Game 5."},
+ {n:"Michael Jordan's Last Shot",s:"Basketball",l:"NBA",y:1998,t:"Game-winner",k:"Championship",w:"Bulls",d:"Jordan's jumper over Bryon Russell clinched his sixth title in Utah."},
+ {n:"Ray Allen's Corner Three",s:"Basketball",l:"NBA",y:2013,t:"Comeback",k:"Championship",w:"Heat",d:"Miami was down three with seconds left in Game 6 when Allen tied it from the corner."},
+ {n:"Kawhi's Bouncing Buzzer Beater",s:"Basketball",l:"NBA",y:2019,t:"Game-winner",k:"Postseason",w:"Raptors",d:"The shot bounced four times on the rim before dropping to beat Philadelphia in Game 7."},
+ {n:"LeBron's Block",s:"Basketball",l:"NBA",y:2016,t:"Miracle play",k:"Championship",w:"Cavaliers",d:"LeBron chased down Andre Iguodala in Game 7, helping Cleveland overcome a 3-1 deficit."},
+ {n:"Kris Jenkins' Buzzer Beater",s:"Basketball",l:"NCAA Basketball",y:2016,t:"Game-winner",k:"Championship",w:"Villanova",d:"A three at the buzzer beat North Carolina in the national title game."},
+ {n:"Laettner's Shot",s:"Basketball",l:"NCAA Basketball",y:1992,t:"Game-winner",k:"Postseason",w:"Duke",d:"Christian Laettner caught a full-court pass and hit a turnaround buzzer-beater against Kentucky."},
+ {n:"Jordan's Flu Game",s:"Basketball",l:"NBA",y:1997,t:"Dominant performance",k:"Championship",w:"Bulls",d:"A visibly sick Jordan scored 38 points in Game 5 of the Finals against Utah."},
+ {n:"Kobe's 81 Points",s:"Basketball",l:"NBA",y:2006,t:"Record",k:"Regular season",w:"Lakers",d:"Kobe Bryant scored 81 against Toronto, second most in a single NBA game."},
+ {n:"Wilt's 100-Point Game",s:"Basketball",l:"NBA",y:1962,t:"Record",k:"Regular season",w:"Warriors",d:"Wilt Chamberlain scored 100 points against the Knicks in Hershey, Pennsylvania."},
+ {n:"Lillard's Series-Winner",s:"Basketball",l:"NBA",y:2019,t:"Game-winner",k:"Postseason",w:"Trail Blazers",d:"Damian Lillard hit a deep three at the buzzer to eliminate Oklahoma City."},
+ // Baseball
+ {n:"Kirk Gibson's Home Run",s:"Baseball",l:"MLB",y:1988,t:"Game-winner",k:"Championship",w:"Dodgers",d:"A hobbled Gibson's pinch-hit walk-off homer won Game 1 of the World Series."},
+ {n:"Buckner's Error",s:"Baseball",l:"MLB",y:1986,t:"Heartbreak",k:"Championship",w:"Mets",d:"A ground ball rolled through Bill Buckner's legs in Game 6 of the World Series."},
+ {n:"Mazeroski's Walk-Off",s:"Baseball",l:"MLB",y:1960,t:"Game-winner",k:"Championship",w:"Pirates",d:"Bill Mazeroski's Game 7 homer beat the Yankees to win the World Series."},
+ {n:"Cubs Break the Curse",s:"Baseball",l:"MLB",y:2016,t:"Comeback",k:"Championship",w:"Cubs",d:"Chicago won an extra-inning Game 7 after trailing 3-1 in the series, ending a 108-year drought."},
+ {n:"Joe Carter's Walk-Off",s:"Baseball",l:"MLB",y:1993,t:"Game-winner",k:"Championship",w:"Blue Jays",d:"Carter's three-run homer ended the World Series against Philadelphia."},
+ {n:"Babe Ruth's Called Shot",s:"Baseball",l:"MLB",y:1932,t:"Controversy",k:"Championship",w:"Yankees",d:"Ruth supposedly pointed to center field before homering in the World Series."},
+ {n:"Don Larsen's Perfect Game",s:"Baseball",l:"MLB",y:1956,t:"Record",k:"Championship",w:"Yankees",d:"The only perfect game in World Series history."},
+ {n:"Shot Heard 'Round the World",s:"Baseball",l:"MLB",y:1951,t:"Game-winner",k:"Postseason",w:"Giants",d:"Bobby Thomson's pennant-winning homer beat the Dodgers in a playoff."},
+ {n:"Red Sox 2004 Comeback",s:"Baseball",l:"MLB",y:2004,t:"Comeback",k:"Postseason",w:"Red Sox",d:"Boston came back from 3-0 down against the Yankees in the ALCS."},
+ {n:"Ripken Breaks the Streak",s:"Baseball",l:"MLB",y:1995,t:"Record",k:"Regular season",w:"Orioles",d:"Cal Ripken Jr. played in his 2,131st straight game."},
+ {n:"Aaron's 715th Home Run",s:"Baseball",l:"MLB",y:1974,t:"Record",k:"Regular season",w:"Braves",d:"Hank Aaron passed Babe Ruth's career home run record."},
+ {n:"Jackie Robinson's Debut",s:"Baseball",l:"MLB",y:1947,t:"Record",k:"Regular season",w:"Dodgers",d:"Robinson broke Major League Baseball's color barrier."},
+ // Soccer
+ {n:"Hand of God",s:"Soccer",l:"FIFA World Cup",y:1986,t:"Controversy",k:"Postseason",w:"Argentina",d:"Maradona punched in a goal against England, then scored a wonder goal minutes later."},
+ {n:"Zidane's Headbutt",s:"Soccer",l:"FIFA World Cup",y:2006,t:"Controversy",k:"Championship",w:"Italy",d:"Zinedine Zidane was sent off in extra time of his final match."},
+ {n:"Agüero 93:20",s:"Soccer",l:"Premier League",y:2012,t:"Game-winner",k:"Championship",w:"Manchester City",d:"A stoppage-time goal won City the league title on the final day."},
+ {n:"Miracle of Istanbul",s:"Soccer",l:"Champions League",y:2005,t:"Comeback",k:"Championship",w:"Liverpool",d:"Liverpool scored three in six minutes after trailing AC Milan 3-0 at halftime."},
+ {n:"Man United's 1999 Treble",s:"Soccer",l:"Champions League",y:1999,t:"Comeback",k:"Championship",w:"Manchester United",d:"Two goals in stoppage time beat Bayern Munich in the final."},
+ {n:"Leicester's Title",s:"Soccer",l:"Premier League",y:2016,t:"Upset",k:"Championship",w:"Leicester City",d:"A 5000-1 outsider won the English league."},
+ {n:"Germany 7-1 Brazil",s:"Soccer",l:"FIFA World Cup",y:2014,t:"Dominant performance",k:"Postseason",w:"Germany",d:"The hosts were demolished in a World Cup semifinal."},
+ {n:"Brandi Chastain's Penalty",s:"Soccer",l:"FIFA World Cup",y:1999,t:"Game-winner",k:"Championship",w:"USA",d:"The winning penalty kick in a shootout against China sparked a famous celebration."},
+ {n:"Messi Wins the World Cup",s:"Soccer",l:"FIFA World Cup",y:2022,t:"Epic battle",k:"Championship",w:"Argentina",d:"A 3-3 thriller against France was decided on penalties."},
+ // Olympics & Track
+ {n:"Miracle on Ice",s:"Hockey",l:"Olympics",y:1980,t:"Upset",k:"Postseason",w:"USA",d:"A team of amateurs beat the dominant Soviet Union at Lake Placid."},
+ {n:"Golden Goal",s:"Hockey",l:"Olympics",y:2010,t:"Game-winner",k:"Championship",w:"Canada",d:"Sidney Crosby scored in overtime to beat the USA for gold in Vancouver."},
+ {n:"Paul Henderson's Goal",s:"Hockey",l:"International",y:1972,t:"Game-winner",k:"Special event",w:"Canada",d:"Henderson scored with 34 seconds left in Game 8 of the Summit Series against the USSR."},
+ {n:"Bobby Orr's Flying Goal",s:"Hockey",l:"NHL",y:1970,t:"Game-winner",k:"Championship",w:"Bruins",d:"Orr scored in overtime to win the Stanley Cup and was famously airborne."},
+ {n:"Bolt Runs 9.58",s:"Track & Field",l:"World Championships",y:2009,t:"Record",k:"Championship",w:"Usain Bolt",d:"The current 100m world record, set in Berlin."},
+ {n:"Bob Beamon's Jump",s:"Track & Field",l:"Olympics",y:1968,t:"Record",k:"Championship",w:"Bob Beamon",d:"A leap of 8.90 meters in Mexico City shattered the long jump record."},
+ {n:"Jesse Owens in Berlin",s:"Track & Field",l:"Olympics",y:1936,t:"Record",k:"Championship",w:"Jesse Owens",d:"Owens won four gold medals at the Games in Nazi Germany."},
+ {n:"Bannister's Four-Minute Mile",s:"Track & Field",l:"Other",y:1954,t:"Record",k:"Special event",w:"Roger Bannister",d:"The first sub-four-minute mile, run in Oxford."},
+ {n:"Kipchoge Breaks Two Hours",s:"Track & Field",l:"Other",y:2019,t:"Record",k:"Special event",w:"Eliud Kipchoge",d:"The first marathon under two hours, in Vienna, with pacers."},
+ {n:"Phelps' Eighth Gold",s:"Swimming",l:"Olympics",y:2008,t:"Record",k:"Championship",w:"Michael Phelps",d:"A 0.01 second win in the 100m butterfly gave him a record eight golds at one Games."},
+ {n:"Nadia's Perfect 10",s:"Gymnastics",l:"Olympics",y:1976,t:"Record",k:"Early round",w:"Nadia Comaneci",d:"The first perfect score in Olympic gymnastics; the scoreboard could only show 1.00."},
+ {n:"Kerri Strug's Vault",s:"Gymnastics",l:"Olympics",y:1996,t:"Miracle play",k:"Championship",w:"USA",d:"Strug landed her vault on an injured ankle to clinch the team gold."},
+ // Boxing, Golf, Tennis, Others
+ {n:"Rumble in the Jungle",s:"Boxing",l:"Boxing",y:1974,t:"Upset",k:"Championship",w:"Muhammad Ali",d:"Ali used rope-a-dope to knock out George Foreman in Zaire."},
+ {n:"Buster Douglas Knocks Out Tyson",s:"Boxing",l:"Boxing",y:1990,t:"Upset",k:"Championship",w:"Buster Douglas",d:"A 42-1 underdog ended Mike Tyson's unbeaten run in Tokyo."},
+ {n:"Tiger's 2019 Masters",s:"Golf",l:"Major",y:2019,t:"Comeback",k:"Championship",w:"Tiger Woods",d:"Woods won his first major in 11 years after back surgeries."},
+ {n:"Tiger's Chip-In",s:"Golf",l:"Major",y:2005,t:"Miracle play",k:"Championship",w:"Tiger Woods",d:"A chip on 16 at Augusta paused on the lip of the cup before dropping."},
+ {n:"Tiger's 2008 U.S. Open",s:"Golf",l:"Major",y:2008,t:"Miracle play",k:"Championship",w:"Tiger Woods",d:"Woods won in a playoff at Torrey Pines on a damaged leg."},
+ {n:"Nicklaus' 1986 Masters",s:"Golf",l:"Major",y:1986,t:"Comeback",k:"Championship",w:"Jack Nicklaus",d:"At 46, Nicklaus shot a back-nine 30 to win a sixth green jacket."},
+ {n:"Federer vs. Nadal Wimbledon Final",s:"Tennis",l:"Grand Slam",y:2008,t:"Epic battle",k:"Championship",w:"Rafael Nadal",d:"A near-five-hour final ended in near darkness."},
+ {n:"Isner vs. Mahut",s:"Tennis",l:"Grand Slam",y:2010,t:"Epic battle",k:"Early round",w:"John Isner",d:"A first-round match that lasted over 11 hours across three days at Wimbledon."},
+ {n:"Battle of the Sexes",s:"Tennis",l:"Exhibition",y:1973,t:"Record",k:"Special event",w:"Billie Jean King",d:"King beat Bobby Riggs in front of a huge televised audience."},
+ {n:"Raducanu's U.S. Open",s:"Tennis",l:"Grand Slam",y:2021,t:"Upset",k:"Championship",w:"Emma Raducanu",d:"A qualifier won the U.S. Open without dropping a set."},
+ {n:"Hamilton's Last-Lap Title",s:"Racing",l:"Formula 1",y:2008,t:"Game-winner",k:"Championship",w:"Lewis Hamilton",d:"He passed Timo Glock on the last lap in Brazil to win the title by a point."},
+ {n:"Verstappen's Abu Dhabi Finish",s:"Racing",l:"Formula 1",y:2021,t:"Game-winner",k:"Championship",w:"Max Verstappen",d:"A late safety-car restart let him pass Hamilton on the last lap for the title."},
+ {n:"India Wins the 1983 World Cup",s:"Cricket",l:"Cricket World Cup",y:1983,t:"Upset",k:"Championship",w:"India",d:"Heavy underdogs beat the mighty West Indies at Lord's."},
+ {n:"Dhoni's World Cup Six",s:"Cricket",l:"Cricket World Cup",y:2011,t:"Game-winner",k:"Championship",w:"India",d:"MS Dhoni sealed the final against Sri Lanka with a six in Mumbai."},
+ {n:"Stokes at Headingley",s:"Cricket",l:"The Ashes",y:2019,t:"Comeback",k:"Special event",w:"England",d:"Ben Stokes' unbeaten 135 chased down a massive target for a one-wicket win."},
+ {n:"Wilkinson's Drop Goal",s:"Rugby",l:"Rugby World Cup",y:2003,t:"Game-winner",k:"Championship",w:"England",d:"A drop goal in the final seconds of extra time beat Australia."},
+ {n:"Mandela and the Springboks",s:"Rugby",l:"Rugby World Cup",y:1995,t:"Game-winner",k:"Championship",w:"South Africa",d:"Nelson Mandela wore a Springbok jersey as the host nation beat New Zealand."}
+];
+
+/* ---------- HELPERS ---------- */
+const MAX_GUESSES = 8;
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; } }
+function dailyIndex(){
+  const now = new Date();
+  const day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+  const rand = mulberry32(20241117);
+  const order = MOMENTS.map((_, i) => i);
+  for(let i = order.length - 1; i > 0; i--){ const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order[day % order.length];
+}
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/* ---------- STATE ---------- */
+let mode = "daily";
+let answerIdx = 0;
+let guesses = [];      // array of moment indices
+let finished = false;
+let won = false;
+
+function saveDaily(){
+  if(mode !== "daily") return;
+  store.set("moment_daily_" + todayKey(), {guesses, finished, won});
+}
+
+function startGame(newMode){
+  mode = newMode;
+  guesses = []; finished = false; won = false;
+  if(mode === "daily"){
+    answerIdx = dailyIndex();
+    const saved = store.get("moment_daily_" + todayKey(), null);
+    if(saved){ guesses = saved.guesses; finished = saved.finished; won = saved.won; }
+  } else {
+    answerIdx = Math.floor(Math.random() * MOMENTS.length);
+  }
+  $("modeDaily").classList.toggle("primary", mode === "daily");
+  $("modeRandom").classList.toggle("primary", mode === "random");
+  $("rows").innerHTML = "";
+  $("result").style.display = "none";
+  guesses.forEach(g => renderRow(MOMENTS[g], false));
+  $("guess").disabled = finished;
+  $("guess").value = "";
+  updateCounter();
+  if(finished) showResult();
+  renderStats();
+}
+
+/* ---------- COMPARISON ---------- */
+function compare(g, a){
+  const cells = [];
+  cells.push({text: g.s, cls: g.s === a.s ? "g" : "r"});
+  cells.push({text: g.l, cls: g.l === a.l ? "g" : (g.s === a.s ? "y" : "r")});
+  let yc = "r";
+  if(g.y === a.y) yc = "g"; else if(Math.abs(g.y - a.y) <= 5) yc = "y";
+  const arrow = g.y === a.y ? "" : (a.y > g.y ? " ▲" : " ▼");
+  cells.push({text: g.y + arrow, cls: yc});
+  cells.push({text: g.t, cls: g.t === a.t ? "g" : "r"});
+  cells.push({text: g.k, cls: g.k === a.k ? "g" : "r"});
+  cells.push({text: g.w, cls: g.w === a.w ? "g" : "r"});
+  return cells;
+}
+
+function renderRow(g, animate = true){
+  const tr = document.createElement("tr");
+  const nameTd = document.createElement("td");
+  nameTd.className = "name";
+  nameTd.textContent = g.n;
+  tr.appendChild(nameTd);
+  compare(g, MOMENTS[answerIdx]).forEach((c, i) => {
+    const td = document.createElement("td");
+    td.className = c.cls;
+    td.textContent = c.text;
+    td.style.animationDelay = animate ? (i * 90) + "ms" : "0ms";
+    tr.appendChild(td);
+  });
+  $("rows").appendChild(tr);
+}
+
+/* ---------- GUESSING ---------- */
+function submitGuess(idx){
+  if(finished || guesses.includes(idx)) return;
+  guesses.push(idx);
+  renderRow(MOMENTS[idx]);
+  if(idx === answerIdx){ finished = true; won = true; }
+  else if(guesses.length >= MAX_GUESSES){ finished = true; won = false; }
+  updateCounter();
+  if(finished){
+    $("guess").disabled = true;
+    recordStats();
+    setTimeout(showResult, 700);
+  }
+  saveDaily();
+}
+
+function updateCounter(){
+  $("counter").textContent = finished ? "" : "Guess " + (guesses.length + 1) + " of " + MAX_GUESSES;
+}
+
+function shareText(){
+  const a = MOMENTS[answerIdx];
+  const lines = guesses.map(gi => compare(MOMENTS[gi], a).map(c => c.cls === "g" ? "🟩" : c.cls === "y" ? "🟨" : "🟥").join(""));
+  const title = mode === "daily" ? "Moment " + todayKey() : "Moment (random)";
+  return title + " " + (won ? guesses.length : "X") + "/" + MAX_GUESSES + "\n" + lines.join("\n");
+}
+
+function showResult(){
+  const a = MOMENTS[answerIdx];
+  const box = $("result");
+  box.innerHTML = "";
+  const h = document.createElement("h2");
+  h.textContent = won ? "You got it in " + guesses.length + "!" : "The moment was: " + a.n;
+  const p = document.createElement("p");
+  p.textContent = (won ? a.n + " — " : "") + a.d + " (" + a.y + ")";
+  const share = document.createElement("button");
+  share.className = "primary";
+  share.textContent = "Copy results";
+  share.onclick = () => {
+    const t = shareText();
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+      () => { share.textContent = "Copied!"; },
+      () => { prompt("Copy your results:", t); }
+    );
+  };
+  box.appendChild(h); box.appendChild(p); box.appendChild(share);
+  if(mode === "random"){
+    const again = document.createElement("button");
+    again.textContent = "Play another";
+    again.style.marginLeft = "8px";
+    again.onclick = () => startGame("random");
+    box.appendChild(again);
+  }
+  box.style.display = "block";
+}
+
+/* ---------- STATS (daily only) ---------- */
+function recordStats(){
+  if(mode !== "daily") return;
+  const s = store.get("moment_stats", {played:0, wins:0, streak:0, best:0, last:""});
+  if(s.last === todayKey()) return;
+  s.played++;
+  if(won){ s.wins++; s.streak++; s.best = Math.max(s.best, s.streak); } else { s.streak = 0; }
+  s.last = todayKey();
+  store.set("moment_stats", s);
+  renderStats();
+}
+function renderStats(){
+  const s = store.get("moment_stats", {played:0, wins:0, streak:0, best:0});
+  $("stats").textContent = "Daily stats — Played: " + s.played + " · Wins: " + s.wins + " · Streak: " + s.streak + " · Best: " + s.best + " · " + MOMENTS.length + " moments in the pool";
+}
+
+/* ---------- AUTOCOMPLETE ---------- */
+const input = $("guess"), dd = $("dd");
+let matches = [], activeI = -1;
+
+function refreshDropdown(){
+  const q = input.value.trim().toLowerCase();
+  dd.innerHTML = "";
+  activeI = -1;
+  if(!q){ dd.style.display = "none"; matches = []; return; }
+  matches = MOMENTS.map((m, i) => ({m, i}))
+    .filter(o => !guesses.includes(o.i) && (o.m.n.toLowerCase().includes(q) || o.m.w.toLowerCase().includes(q) || o.m.s.toLowerCase().includes(q) || o.m.l.toLowerCase().includes(q)))
+    .slice(0, 8);
+  matches.forEach((o, k) => {
+    const div = document.createElement("div");
+    div.textContent = o.m.n;
+    div.onmousedown = e => { e.preventDefault(); pick(k); };
+    dd.appendChild(div);
+  });
+  dd.style.display = matches.length ? "block" : "none";
+}
+function pick(k){
+  if(!matches[k]) return;
+  const idx = matches[k].i;
+  input.value = ""; dd.style.display = "none"; matches = [];
+  submitGuess(idx);
+}
+function highlight(){
+  [...dd.children].forEach((c, i) => c.classList.toggle("active", i === activeI));
+}
+input.addEventListener("input", refreshDropdown);
+input.addEventListener("keydown", e => {
+  if(e.key === "ArrowDown"){ e.preventDefault(); activeI = Math.min(activeI + 1, matches.length - 1); highlight(); }
+  else if(e.key === "ArrowUp"){ e.preventDefault(); activeI = Math.max(activeI - 1, 0); highlight(); }
+  else if(e.key === "Enter"){ e.preventDefault(); if(matches.length) pick(activeI >= 0 ? activeI : 0); }
+  else if(e.key === "Escape"){ dd.style.display = "none"; }
+});
+input.addEventListener("blur", () => setTimeout(() => dd.style.display = "none", 100));
+
+$("modeDaily").onclick = () => startGame("daily");
+$("modeRandom").onclick = () => startGame("random");
+
+startGame("daily");
+</script>
+</body>
+</html>
